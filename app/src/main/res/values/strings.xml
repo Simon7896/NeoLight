@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">NeoLight</string>
+
+    <!-- Strings for fragments -->
+    <string name="dialog_error">Error</string>
+    <string name="dialog_flash_error">Device does not have a flash installed!</string>
+    <string name="dialog_exit">Exit</string>
 </resources>
