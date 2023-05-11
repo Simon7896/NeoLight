@@ -9,28 +9,34 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ElevatedButton
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import com.example.neolight.R
+import com.example.neolight.core.TopBar
 import com.example.neolight.ui.theme.NeoLightTheme
 
 class MainActivity : ComponentActivity() {
@@ -44,23 +50,24 @@ class MainActivity : ComponentActivity() {
             applicationContext.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_FLASH)
 
         setContent {
-            NeoLightTheme {
-                // A surface container using the 'background' color from the theme
-                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    Column() {
-                        TopBar()
-                    }
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        NoFlashAlert(hasFlash = hasFlash)
-                        TorchToggleButton(::toggleTorch)
-                    }
+
+            val navController = rememberNavController()
+            NavHost(navController = navController, startDestination = "home") {
+                composable("home") {
+                    HomeScreen(
+                        navController = navController,
+                        hasFlash = hasFlash,
+                        onClick = ::toggleTorch
+                    )
+                }
+                composable("select") {
+
+                }
+                composable("options") {
+
                 }
             }
         }
-
     }
 
     private fun toggleTorch() {
@@ -75,33 +82,58 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TopBar() {
-    TopAppBar(
-        title = { Text(stringResource(id = R.string.app_name)) },
-        navigationIcon = {
-            IconButton(onClick = { /* doSomething() */ }) {
-                Icon(Icons.Filled.Menu, contentDescription = null)
+fun HomeScreen(
+    navController: NavController,
+    hasFlash: Boolean,
+    onClick: () -> Unit,
+) {
+    NeoLightTheme {
+        // A surface container using the 'background' color from the theme
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Column {
+                TopBar()
             }
-        },
-        actions = {
-            // RowScope here, so these icons will be placed horizontally
-            IconButton(onClick = { /* doSomething() */ }) {
-                Icon(Icons.Filled.Favorite, contentDescription = "Localized description")
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceEvenly
+            ) {
+                NoFlashAlert(hasFlash = hasFlash)
+                TorchToggleButton(onClick)
             }
-            IconButton(onClick = { /* doSomething() */ }) {
-                Icon(Icons.Filled.Share, contentDescription = "Localized description")
+            Column(verticalArrangement = Arrangement.Bottom) {
+                NavigationBar() {
+                    NavigationBarItem(
+                        selected = true,
+                        onClick = { /*TODO*/ },
+                        icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
+                        label = { Text(text = "Home")}
+                    )
+                    NavigationBarItem(
+                        selected = false,
+                        onClick = { /*TODO*/ },
+                        icon = { Icon(Icons.Default.List, contentDescription = "Custom")},
+                        label = { Text(text = "Custom")}
+                    )
+                    NavigationBarItem(
+                        selected = false,
+                        onClick = { /*TODO*/ },
+                        icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
+                        label = { Text(text = "Settings")}
+                    )
+                }
             }
         }
-    )
+    }
 }
 
 @Composable
 fun TorchToggleButton(onClick: () -> Unit) {
-    ElevatedButton(
+    Button(
         onClick = onClick,
         shape = CircleShape,
+        modifier= Modifier.size(100.dp),  //avoid the oval shape
+        contentPadding = PaddingValues(0.dp)  //avoid the little icon
     ) {
         Icon(
             painter = painterResource(id = R.drawable.baseline_flashlight_on_24),
@@ -126,6 +158,7 @@ fun NoFlashAlert(hasFlash: Boolean) {
 @Composable
 fun MainPreview() {
     NeoLightTheme {
-        TorchToggleButton {}
+        HomeScreen(navController = rememberNavController(), hasFlash = true) {
+        }
     }
 }
