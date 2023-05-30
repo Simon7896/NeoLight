@@ -5,4 +5,8 @@
     <string name="dialog_error">Error</string>
     <string name="dialog_flash_error">Device does not have a flash installed!</string>
     <string name="dialog_exit">Exit</string>
+
+    <string name="home">Home</string>
+    <string name="select">Select</string>
+    <string name="settings">Settings</string>
 </resources>
