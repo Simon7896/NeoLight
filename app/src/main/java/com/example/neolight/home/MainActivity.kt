@@ -7,30 +7,48 @@ import android.hardware.camera2.CameraManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.neolight.R
 import com.example.neolight.core.TopBar
 import com.example.neolight.ui.theme.NeoLightTheme
+
+sealed class Screen(val route: String, @StringRes val resourceId: Int, val icon: ImageVector) {
+    object Home : Screen("home", R.string.home, Icons.Default.Home)
+    object Select : Screen("select", R.string.select, Icons.Default.List)
+    object Settings: Screen("settings", R.string.settings, Icons.Default.Settings)
+}
 
 class MainActivity : ComponentActivity() {
 
@@ -43,21 +61,44 @@ class MainActivity : ComponentActivity() {
             applicationContext.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_FLASH)
 
         setContent {
-
             val navController = rememberNavController()
-            NavHost(navController = navController, startDestination = "home") {
-                composable("home") {
-                    HomeScreen(
-                        navController = navController,
-                        hasFlash = hasFlash,
-                        onClick = ::toggleTorch
-                    )
-                }
-                composable("select") {
 
-                }
-                composable("options") {
+            val items = listOf(
+                Screen.Home,
+                Screen.Select,
+                Screen.Settings
+            )
 
+            Scaffold(
+                topBar = { TopBar() },
+                bottomBar = {
+                    NavigationBar {
+                        val navBackStackEntry by navController.currentBackStackEntryAsState()
+                        val currentDestination = navBackStackEntry?.destination
+                        items.forEach { screen ->
+                            NavigationBarItem(
+                                icon = { Icon(screen.icon, contentDescription = null) },
+                                label = { Text(stringResource(id = screen.resourceId)) },
+                                selected = currentDestination?.hierarchy?.any { it.route == screen.route} == true,
+                                onClick = {
+                                    navController.navigate(screen.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            ) { paddingValues ->
+                NavHost(navController, startDestination = Screen.Home.route, Modifier.padding(paddingValues)) {
+                    composable(Screen.Home.route) { HomeScreen(onClick = {::toggleTorch}) }
+                    composable(Screen.Select.route) { CustomMenuScreen() }
+                    composable(Screen.Settings.route) {}
                 }
             }
         }
@@ -77,25 +118,18 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun HomeScreen(
-    navController: NavController,
-    hasFlash: Boolean,
-    onClick: () -> Unit,
-) {
+        onClick: () -> Unit,
+    ) {
     NeoLightTheme {
-        // A surface container using the 'background' color from the theme
-        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Column {
-                TopBar()
-            }
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceEvenly
+        Scaffold(
+        ) {
+            paddingValues -> Box(
+            Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+                contentAlignment = Alignment.Center,
             ) {
-                NoFlashAlert(hasFlash = hasFlash)
                 TorchToggleButton(onClick)
-            }
-            Column(verticalArrangement = Arrangement.Bottom) {
-
             }
         }
     }
@@ -132,7 +166,7 @@ fun NoFlashAlert(hasFlash: Boolean) {
 @Composable
 fun MainPreview() {
     NeoLightTheme {
-        HomeScreen(navController = rememberNavController(), hasFlash = true) {
+        HomeScreen() {
         }
     }
 }
