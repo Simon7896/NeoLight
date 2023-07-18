@@ -1,4 +1,4 @@
-package com.example.neolight.core
+package com.example.neolight.ui
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite

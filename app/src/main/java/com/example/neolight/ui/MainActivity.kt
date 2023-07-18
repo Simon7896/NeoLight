@@ -1,12 +1,15 @@
-package com.example.neolight.home
+package com.example.neolight.ui
 
 import android.content.Context
 import android.content.pm.PackageManager
 import android.hardware.camera2.CameraAccessException
 import android.hardware.camera2.CameraManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -17,7 +20,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -27,12 +29,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -41,18 +44,24 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.neolight.R
-import com.example.neolight.core.TopBar
+import com.example.neolight.ui.flashoption.FlashOptionViewModel
 import com.example.neolight.ui.theme.NeoLightTheme
+import java.lang.Thread.sleep
 
 sealed class Screen(val route: String, @StringRes val resourceId: Int, val icon: ImageVector) {
     object Home : Screen("home", R.string.home, Icons.Default.Home)
     object Select : Screen("select", R.string.select, Icons.Default.List)
-    object Settings: Screen("settings", R.string.settings, Icons.Default.Settings)
 }
 
 class MainActivity : ComponentActivity() {
 
-    private var isTorchOn : Boolean = false
+    private val flashOptionViewModel: FlashOptionViewModel by viewModels {
+        FlashOptionViewModel.Factory
+    }
+
+    private lateinit var cameraManager: CameraManager
+    private lateinit var cameraId: String
+    private lateinit var handler: Handler
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,17 +69,26 @@ class MainActivity : ComponentActivity() {
         val hasFlash =
             applicationContext.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_FLASH)
 
+        cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        cameraId = cameraManager.cameraIdList[0]
+
+        handler = Handler(Looper.getMainLooper())
+
         setContent {
+            
+            if (!hasFlash) {
+                NoFlashAlert()
+            }
+
             val navController = rememberNavController()
 
             val items = listOf(
                 Screen.Home,
                 Screen.Select,
-                Screen.Settings
             )
 
             Scaffold(
-                topBar = { TopBar() },
+                topBar = { },
                 bottomBar = {
                     NavigationBar {
                         val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -96,47 +114,78 @@ class MainActivity : ComponentActivity() {
                 }
             ) { paddingValues ->
                 NavHost(navController, startDestination = Screen.Home.route, Modifier.padding(paddingValues)) {
-                    composable(Screen.Home.route) { HomeScreen(onClick = {::toggleTorch}) }
-                    composable(Screen.Select.route) { CustomMenuScreen() }
-                    composable(Screen.Settings.route) {}
+                    composable(Screen.Home.route) { HomeScreen(
+                        viewModel = flashOptionViewModel,
+                        onClick = ::startTorch
+                    ) }
+                    composable(Screen.Select.route) { CustomMenuScreen(
+                        viewModel = flashOptionViewModel
+                    ) }
                 }
             }
         }
     }
 
-    private fun toggleTorch() {
-        val cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        val cameraId = cameraManager.cameraIdList[0]
+    private fun setTorch(mode: Boolean) {
         try {
-            cameraManager.setTorchMode(cameraId, !isTorchOn)
-            isTorchOn = !isTorchOn
+            cameraManager.setTorchMode(cameraId, mode)
         } catch (e: CameraAccessException) {
             e.printStackTrace()
+        }
+    }
+
+    private fun startTorch(mode: Boolean, delay: Long) {
+        handler.removeCallbacksAndMessages(null)
+        if (!mode) {
+            setTorch(false)
+        }
+        if (delay == 0L) {
+            setTorch(true)
+        } else {
+            val runnable = Runnable {
+                setTorch(mode = true)
+                sleep(delay)
+                setTorch(mode = false)
+                sleep(delay)
+
+            }
+            handler.post(runnable)
         }
     }
 }
 
 @Composable
 fun HomeScreen(
-        onClick: () -> Unit,
+        viewModel: FlashOptionViewModel,
+        onClick: (mode: Boolean, delay: Long) -> Unit,
     ) {
+
+    val (isTorchOn, onTorchChange) = remember {
+        mutableStateOf(false)
+    }
+
     NeoLightTheme {
-        Scaffold(
-        ) {
+        Scaffold {
             paddingValues -> Box(
             Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
                 contentAlignment = Alignment.Center,
             ) {
-                TorchToggleButton(onClick)
+                TorchToggleButton(
+                    isChecked = isTorchOn,
+                    onClick = { onClick(isTorchOn, viewModel.selected.delay); onTorchChange(!isTorchOn) }
+                )
             }
         }
     }
 }
 
 @Composable
-fun TorchToggleButton(onClick: () -> Unit) {
+fun TorchToggleButton(
+    isChecked: Boolean,
+    onClick: () -> Unit
+) {
     Button(
         onClick = onClick,
         shape = CircleShape,
@@ -144,29 +193,22 @@ fun TorchToggleButton(onClick: () -> Unit) {
         contentPadding = PaddingValues(0.dp)  //avoid the little icon
     ) {
         Icon(
-            painter = painterResource(id = R.drawable.baseline_flashlight_on_24),
+            painter = painterResource(
+                id = if (isChecked) R.drawable.baseline_flashlight_on_24 else {
+                        R.drawable.baseline_flashlight_off_24
+                }
+            ),
             contentDescription = "Torch",
         )
     }
 }
 
 @Composable
-fun NoFlashAlert(hasFlash: Boolean) {
-    if (hasFlash) { return }
-
+fun NoFlashAlert() {
     NeoLightTheme {
         AlertDialog(
             onDismissRequest = {},
             confirmButton = {},
         )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun MainPreview() {
-    NeoLightTheme {
-        HomeScreen() {
-        }
     }
 }
