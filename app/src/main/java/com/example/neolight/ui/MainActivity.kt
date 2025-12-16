@@ -1,6 +1,5 @@
 package com.example.neolight.ui
 
-import android.content.Context
 import android.content.pm.PackageManager
 import android.hardware.camera2.CameraAccessException
 import android.hardware.camera2.CameraManager
@@ -46,9 +45,8 @@ import androidx.navigation.compose.rememberNavController
 import com.example.neolight.R
 import com.example.neolight.ui.flashoption.FlashOptionViewModel
 import com.example.neolight.ui.theme.NeoLightTheme
-import java.lang.Thread.sleep
 
-sealed class Screen(val route: String, @StringRes val resourceId: Int, val icon: ImageVector) {
+sealed class Screen(val route: String, @get:StringRes val resourceId: Int, val icon: ImageVector) {
     object Home : Screen("home", R.string.home, Icons.Default.Home)
     object Select : Screen("select", R.string.select, Icons.Default.List)
 }
@@ -69,7 +67,7 @@ class MainActivity : ComponentActivity() {
         val hasFlash =
             applicationContext.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_FLASH)
 
-        cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
+        cameraManager = getSystemService(CAMERA_SERVICE) as CameraManager
         cameraId = cameraManager.cameraIdList[0]
 
         handler = Handler(Looper.getMainLooper())
@@ -136,20 +134,22 @@ class MainActivity : ComponentActivity() {
 
     private fun startTorch(mode: Boolean, delay: Long) {
         handler.removeCallbacksAndMessages(null)
-        if (!mode) {
-            setTorch(false)
-        }
-        if (delay == 0L) {
-            setTorch(true)
-        } else {
-            val runnable = Runnable {
-                setTorch(mode = true)
-                sleep(delay)
-                setTorch(mode = false)
-                sleep(delay)
-
+        if (mode) {
+            if (delay == 0L) {
+                setTorch(true)
+            } else {
+                val runnable = object : Runnable {
+                    var toggle = true
+                    override fun run() {
+                        setTorch(toggle)
+                        toggle = !toggle
+                        handler.postDelayed(this, delay)
+                    }
+                }
+                handler.post(runnable)
             }
-            handler.post(runnable)
+        } else {
+            setTorch(false)
         }
     }
 }
@@ -174,7 +174,11 @@ fun HomeScreen(
             ) {
                 TorchToggleButton(
                     isChecked = isTorchOn,
-                    onClick = { onClick(isTorchOn, viewModel.selected.delay); onTorchChange(!isTorchOn) }
+                    onClick = { 
+                        val newMode = !isTorchOn
+                        onClick(newMode, viewModel.selected.delay)
+                        onTorchChange(newMode) 
+                    }
                 )
             }
         }
