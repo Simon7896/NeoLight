@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AlertDialogDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -34,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.SecureFlagPolicy
 import com.example.neolight.data.local.database.FlashOption
@@ -101,7 +101,7 @@ fun ListOption(
 fun AddCustomButton(viewModel: FlashOptionViewModel) {
     var showDialog by remember { mutableStateOf(false) }
     if (showDialog) {
-        AlertDialog(
+        Dialog(
             onDismissRequest = { showDialog = false },
             properties = DialogProperties(
                 dismissOnBackPress = true,
@@ -138,7 +138,7 @@ fun AddCustomButton(viewModel: FlashOptionViewModel) {
                         TextButton(onClick = {
                                 viewModel.insert(FlashOption(name=name, delay = delay.toLong()))
                                 showDialog = false
-                            }
+                        }
                         ) {
                             Text(text = "Confirm")
                         }
